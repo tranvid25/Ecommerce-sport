@@ -1,6 +1,7 @@
 const express=require("express")
 const path = require("path")
 const authRoute=require("./routes/auth.js")
+const cookieParser = require("cookie-parser");
 require("dotenv").config();
 const { GridFsStorage } = require("multer-gridfs-storage");
 const app = express();
@@ -12,7 +13,9 @@ const connection = require("./config/database.js");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 app.use(cors());
-app.use(express.json())
+app.use(express.json());
+app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use("/v1/auth",authRoute);
 const startServer = async () => {
