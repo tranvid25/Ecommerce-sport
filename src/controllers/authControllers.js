@@ -1,216 +1,77 @@
-const bcrypt = require("bcrypt");
 const User = require("../models/User");
-const jwt = require("jsonwebtoken");
+const asyncHandler = require("express-async-handler");
+const {
+  generateAccessToken,
+  generateRefreshToken,
+} = require("../middlewares/jwt");
 
-let refreshTokens = [];
+const register = asyncHandler(async (req, res) => {
+  const { email, password, firstname, lastname, phoneNumber } = req.body;
 
-// Tạo Access Token
-const generateAccessToken = (user) => {
-  return jwt.sign(
-    { id: user.id, admin: user.admin },
-    process.env.JWT_SECRET,
-    { expiresIn: "30s" }
-  );
-};
-
-// Tạo Refresh Token
-const generateRefreshToken = (user) => {
-  return jwt.sign(
-    { id: user.id, admin: user.admin },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: "365d" }
-  );
-};
-
-// Đăng ký người dùng
-const registerUser = async (req, res) => {
-  try {
-    const { username, email, password, phoneNumber, address } = req.body;
-
-    if (!username || !email || !password || !phoneNumber || !address) {
-      return res.status(400).json({ success: false, message: "Missing details" });
-    }
-
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "Email or username already in use",
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({
-      username,
-      email,
-      password: hashedPassword,
-      phoneNumber,
-      address,
-    });
-
-    await newUser.save();
-    res.status(201).json({
-      success: true,
-      message: "User created successfully",
-      user: {
-        id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-      },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
+  // Kiểm tra nếu thiếu thông tin
+  if (!email || !password || !lastname || !firstname || !phoneNumber) {
+    return res.status(400).json({
       success: false,
-      message: "Server error, please try again later",
+      mes: "Missing input",
     });
   }
-};
 
-// Đăng nhập người dùng
-const loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  // Kiểm tra định dạng email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      mes: "Invalid email format",
+    });
+  }
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: "Missing email or password" });
-    }
-
-    const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ success: false, message: "Invalid email or password" });
-    }
-
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-    refreshTokens.push(refreshToken);
-
+  // Kiểm tra nếu email đã tồn tại
+  const user = await User.findOne({ email });
+  if (user) {
+    throw new Error("User has existed!");
+  } else {
+    // Tạo người dùng mới
+    const newUser = await User.create(req.body);
+    return res.status(200).json({
+      success: newUser ? true : false,
+      mes: newUser
+        ? `Register is successfully. Please go login`
+        : "Something went wrong",
+    });
+  }
+});
+const login = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({
+      success: false,
+      mes: "Missing input",
+    });
+  const response = await User.findOne({ email });
+  // tách password ra khỏi response
+  if (response && (await response.isCorrectPassword(password))) {
+    const { password, role, ...userData } = response.toObject();
+    // tạo access token
+    const accessToken = generateAccessToken(response._id, role);
+    //tạo refresh token
+    const refreshToken = generateRefreshToken(response._id);
+    await User.findByIdAndUpdate(response._id, { refreshToken }, { new: true });
+    // lưu refresh token vào cookie
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false,
-      path: "/",
-      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 1000,
     });
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Login successful",
       accessToken,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-      },
+      userData,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server error, please try again later",
-    });
+  } else {
+    throw new Error("Invalid creadentials");
   }
-};
-
-// Refresh Token
-const requestRefreshToken = async (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) {
-    return res.status(401).json({ success: false, message: "You are not authenticated" });
-  }
-
-  if (!refreshTokens.includes(refreshToken)) {
-    return res.status(403).json({ success: false, message: "Invalid refresh token" });
-  }
-
-  jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ success: false, message: "Invalid refresh token" });
-    }
-
-    refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
-    refreshTokens.push(newRefreshToken);
-
-    res.cookie("refreshToken", newRefreshToken, {
-      httpOnly: true,
-      secure: false,
-      path: "/",
-      sameSite: "strict",
-    });
-
-    res.status(200).json({ accessToken: newAccessToken });
-  });
-};
-
-// Lấy danh sách người dùng
-const getUser = async (req, res) => {
-  try {
-    const users = await User.find();
-    res.status(200).json(users);
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// Cập nhật người dùng
-const updateUserById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { username, email, phoneNumber, address } = req.body;
-
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      { username, email, phoneNumber, address },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedUser) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "User updated successfully",
-      data: updatedUser,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// Xóa người dùng
-const deleteUser = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const deletedUser = await User.findById(id);
-    if (!deletedUser) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "User deleted successfully",
-      data: deletedUser,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-const userlogout = async (req, res) => {
-   res.clearCookie("refreshToken");
-   refreshTokens=refreshTokens.filter(token => token !== req.cookies.refreshToken);
-   res.status(200).json("Đăng xuất thành công")
-  };
-  
+});
 
 module.exports = {
-  registerUser,
-  loginUser,
-  requestRefreshToken,
-  getUser,
-  updateUserById,
-  deleteUser,
-  userlogout
+  register,
+  login,
 };
