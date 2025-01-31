@@ -1,0 +1,52 @@
+const mongoose=require('mongoose')
+const { getCategory } = require('../controllers/productCategoryController')
+const blogSchema=new mongoose.Schema({
+    title:{
+        type:String,
+        required:true,
+    },
+    description:{
+        type:String,
+        required:true
+    },
+    category:{
+        type:String,
+        required:true
+    },
+    numberViews:{
+        type:Number,
+        default:0
+    },
+    isLiked:{
+        type:Boolean,
+        default:false
+    },
+    isDisliked:{
+        type:Boolean,
+        default:false
+    },
+    likes:[
+        {
+            type:mongoose.Types.ObjectId,
+            ref:'User'
+        }
+    ],
+    dislikes:[
+        {
+            type:mongoose.Types.ObjectId,
+            ref:'User'
+        }
+    ],
+    image:{
+        type:String,
+        default:'https://tse1.mm.bing.net/th?id=OIP.bGq8rpjObr_8UWzl2go8fQHaDt&pid=Api&P=0&h=180'
+    },
+    author:{
+        type:String,
+        default:'Admin'
+    }
+},{
+    timestamps:true,
+    toJSON:{virtuals:true},
+    toObject:{virtuals:true}
+})

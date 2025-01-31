@@ -1,13 +1,12 @@
 const mongoose=require('mongoose')
-const blogCategorySchema=new mongoose.Schema({
+const productCategorySchema=new mongoose.Schema({
     title:{
         type:String,
         required:true,
         unique:true,
-        index:true
+        index:true,
     }
 },{
     timestamps:true
-
 })
-module.exports=mongoose.model('BlogCategory',blogCategorySchema)
+module.exports=mongoose.model('ProductCategory',productCategorySchema)
