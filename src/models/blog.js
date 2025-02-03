@@ -1,5 +1,4 @@
 const mongoose=require('mongoose')
-const { getCategory } = require('../controllers/productCategoryController')
 const blogSchema=new mongoose.Schema({
     title:{
         type:String,
@@ -16,14 +15,6 @@ const blogSchema=new mongoose.Schema({
     numberViews:{
         type:Number,
         default:0
-    },
-    isLiked:{
-        type:Boolean,
-        default:false
-    },
-    isDisliked:{
-        type:Boolean,
-        default:false
     },
     likes:[
         {
@@ -50,3 +41,4 @@ const blogSchema=new mongoose.Schema({
     toJSON:{virtuals:true},
     toObject:{virtuals:true}
 })
+module.exports=mongoose.model('Blog',blogSchema)

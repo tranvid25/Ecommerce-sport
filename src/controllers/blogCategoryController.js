@@ -8,7 +8,7 @@ const createBlogCategory=asyncHandler(async(req,res)=>{
     })
 })
 const getBlogCategory=asyncHandler(async(req,res)=>{
-    const response=await BlogCategory.find().select('title _id')
+    const response=await BlogCategory.find().select('title -_id')
     return res.status(200).json({
         success:response ? true : false,
         getCategory:response ? response : 'Cannot get product-category'
