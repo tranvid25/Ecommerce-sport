@@ -104,28 +104,52 @@ const ratings = asyncHandler(async (req, res) => {
   const { start, comment, pid } = req.body;
   if (!start || !pid) throw new Error("Missing inputs");
   const ratingProduct = await Product.findById(pid);
-  const alreadyRating = ratingProduct?.ratings?.find(el => el.postedBy.toString() === _id)
-  if(alreadyRating){
-     await Product.updateOne({
-        ratings:{$elemMatch:alreadyRating}
-     },{
-        $set:{"ratings.$.start":start,"ratings.$.comment": comment}
-     },{new:true})
-  }else{
-    await Product.findByIdAndUpdate(pid,{
-        $push:{ratings:{start,comment,postedBy:_id}}
-    },{new:true})
+  const alreadyRating = ratingProduct?.ratings?.find(
+    (el) => el.postedBy.toString() === _id
+  );
+  if (alreadyRating) {
+    await Product.updateOne(
+      {
+        ratings: { $elemMatch: alreadyRating },
+      },
+      {
+        $set: { "ratings.$.start": start, "ratings.$.comment": comment },
+      },
+      { new: true }
+    );
+  } else {
+    await Product.findByIdAndUpdate(
+      pid,
+      {
+        $push: { ratings: { start, comment, postedBy: _id } },
+      },
+      { new: true }
+    );
   }
   //Sum ratings
-  const updatedProduct=await Product.findById(pid)
-  const ratingCount=updatedProduct.ratings.length();
-  const sumRatings=updateProduct.ratings.reduce((sum,el) => sum + el.start,0)
-  updatedProduct.totalRatings=Math.round(sumRatings * 10/ratingCount)/10
-  await updateProduct.save()
+  const updatedProduct = await Product.findById(pid);
+  const ratingCount = updatedProduct.ratings.length();
+  const sumRatings = updateProduct.ratings.reduce(
+    (sum, el) => sum + el.start,
+    0
+  );
+  updatedProduct.totalRatings =
+    Math.round((sumRatings * 10) / ratingCount) / 10;
+  await updateProduct.save();
   return res.status(200).json({
-    status:true
+    status: true,
+  });
+});
+const uploadImagesProduct = asyncHandler(async (req, res) => {
+  const{pid}=req.params;
+  if(!req.files) throw new Error('Missing input');
+  const response=await Product.findByIdAndUpdate(pid,{$push:{images:{$each:req.files.map(el=>el.path)}}},{new:true});
+  return res.status(200).json({
+    status:response ? true : false,
+    updatedProduct:response ? response : 'cannot update image'
   })
 });
+
 module.exports = {
   createProduct,
   getProduct,
@@ -133,5 +157,6 @@ module.exports = {
   getAllProducts,
   updateProduct,
   deleteProduct,
-  ratings
+  ratings,
+  uploadImagesProduct,
 };

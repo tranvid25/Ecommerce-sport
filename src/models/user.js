@@ -14,12 +14,15 @@ const userSchema = new mongoose.Schema(
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role:{type:String,default:"user"},
-  cart:{
-    type:Array,
-    default:[]
-  },
+  cart:[
+    {
+     product:{type:mongoose.Types.ObjectId,ref:'Product'},
+     quantity:Number,
+     color:String,
+    }
+  ],
   phoneNumber: { type: String,required:true,unique:true},
-  address: [{ type:mongoose.Types.ObjectId,ref:'Address' }],
+  address:{type:Array,default:[]},
   wishlist:[{type:mongoose.Types.ObjectId,ref:'Product'}],
   isBlocked:{
     type:Boolean,

@@ -127,6 +127,15 @@ const getOneBlog = asyncHandler(async (req, res) => {
         rs: blog
     });
 });
+const uploadImagesBlog = asyncHandler(async (req, res) => {
+  const{bid}=req.params;
+  if(!req.file) throw new Error('Missing input');
+  const response=await Blog.findByIdAndUpdate(bid,{image:req.file.path},{new:true});
+  return res.status(200).json({
+    status:response ? true : false,
+    updatedBlog:response ? response : 'cannot update image blog'
+  })
+});
 
 
 
@@ -137,5 +146,6 @@ module.exports={
    getBlog,deleteBlog,
    likeBlog,
    dislikeBlog,
-   getOneBlog
+   getOneBlog,
+   uploadImagesBlog
 }
